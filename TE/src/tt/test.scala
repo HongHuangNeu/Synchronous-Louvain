@@ -75,11 +75,13 @@ object test {
     /*
      * update community
      * */
-    newLouvainGraph.outerJoinVertices(communityInfo)((vid,v,d)=>{
-      
-       //stuck here
-      
+    val newCom=newLouvainGraph.outerJoinVertices(communityInfo)((vid,v,d)=>{
+     var sum=0.0; 
+     val bigMap = d.reduceLeft(_ ++ _);
+     bigMap.foreach{case (k,v)=>sum=sum+v._2};
+      sum
     })
+    newCom.vertices.collect().foreach(f=>println("id is "+f._1+" sum is"+f._2))
   }
   private def exchangeMsg(et:EdgeTriplet[VertexInfo,Double]) = { 
     val m1 = (et.dstId,Map(et.srcAttr.community->(et.srcAttr.communitySigmaTot,et.attr))) 
