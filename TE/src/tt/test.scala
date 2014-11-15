@@ -77,7 +77,7 @@ object test {
      * */
     newLouvainGraph.outerJoinVertices(communityInfo)((vid,v,d)=>{
       
-       
+       //stuck here
       
     })
   }
