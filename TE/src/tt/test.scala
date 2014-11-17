@@ -137,21 +137,43 @@ object test {
     })
       infoMap.toMap
   }
+  /*Louvain update:
+   * Calculate the improvement like this: first remove the node from the current community i and become an isolated community by himself. Then try to add this node to one of the communities(neighboring communities or community i)
+   * and fetch the maximum
+   * */
   private def q(currCommunityId:Long, joinCommunityId:Long, joinCommunitySigmaTot:Double, edgeWeightInJoinCommunity:Double, adjacentWeight:Double, selfWeight:Double, totalEdgeWeight:Double) : Double = { 
-	  	val isCurrentCommunity = (currCommunityId.equals(joinCommunityId)); 
- 		val M = totalEdgeWeight;  
- 	  	val k_i_in =   edgeWeightInJoinCommunity; 
- 		 
- 		val k_i = adjacentWeight + selfWeight; 
- 		val sigma_tot = joinCommunitySigmaTot; 
- 		 
- 		var deltaQ =  0.0; 
- 		if (!(isCurrentCommunity )) { 
- 			deltaQ = k_i_in - ( k_i * sigma_tot / M) 
- 			
- 		} else{
- 		  deltaQ=0.0
+	  	
+	  	var joinOriginalCommunity=true
+	  	if(currCommunityId==joinCommunityId)
+	  	{
+	  	  joinOriginalCommunity=true
+	  	}else
+	  	{
+	  	  joinOriginalCommunity=false
+	  	} 
+ 		val M = totalEdgeWeight;
+ 		var k_i_in=0.0
+ 		
+ 		if(joinOriginalCommunity)
+ 		{
+ 		 k_i_in=edgeWeightInJoinCommunity+selfWeight 
+ 		}else{
+ 	  	 k_i_in =   edgeWeightInJoinCommunity; 
  		}
+ 		val k_i = adjacentWeight + selfWeight; 
+ 		
+ 		
+ 		var sigma_tot=0.0
+ 		if(joinOriginalCommunity)
+ 		{ sigma_tot = joinCommunitySigmaTot-k_i;}
+ 		else{
+ 		  sigma_tot=joinCommunitySigmaTot
+ 		}
+ 		
+ 		 
+ 		var deltaQ =   k_i_in - ( k_i * sigma_tot / M) 
+ 			
+ 		
  		return deltaQ; 
    } 
 
