@@ -5,7 +5,10 @@ import org.apache.spark.SparkConf
 import org.apache.spark.graphx._
 import org.apache.spark._
 import org.apache.spark.rdd.RDD
-
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import scala.collection._
+import java.util.StringTokenizer;
 case class Message(communityId:Long,communitySigmaTot:Double,edgeWeight:Double)
 object test {
 
@@ -45,7 +48,7 @@ object test {
     val vertexGroup: VertexRDD[(Double)] =graph.mapReduceTriplets(et=>Iterator((et.srcId,et.attr), (et.dstId,et.attr)) , (e1,e2)=>e1+e2)
     val LouvainGraph=graph.outerJoinVertices(vertexGroup)((vid,name,weight)=>{val Info=new VertexInfo(); Info.community=vid;Info.communitySigmaTot=weight.getOrElse(0.0);Info.adjacentWeight=weight.getOrElse(0.0);Info  })
     println("adjacentWeights")
-    LouvainGraph.vertices.collect().foreach(f=>println(f._2))
+    LouvainGraph.vertices.collect().foreach(f=>println(f))
     
     /*
      * calculate total weight of the network
@@ -53,7 +56,7 @@ object test {
     //The total weight of the network
     val graphWeight = LouvainGraph.vertices.values.map(v=> v.selfWeight+v.adjacentWeight).reduce(_+_)
     println("total weight of the graph:"+graphWeight)
-    
+    var totalGraphWeight = sc.broadcast(graphWeight) 
     /*
      *operations of collecting sigmaTot 
      * */
@@ -76,12 +79,32 @@ object test {
      * update community
      * */
     val newCom=newLouvainGraph.outerJoinVertices(communityInfo)((vid,v,d)=>{
-     var sum=0.0; 
+     var maxGain=0.0; 
+     var bestCommunity=v.community
      val bigMap = d.reduceLeft(_ ++ _);
-     bigMap.foreach{case (k,v)=>sum=sum+v._2};
-      sum
+     bigMap.foreach{case (communityId,(sigmaTot,edgeWeight))=>{
+       val gain=q(v.community,communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight)
+      if(gain>maxGain)
+      {
+        maxGain=gain
+        bestCommunity=communityId
+      }
+     }
+     
+     };
+     v.community=bestCommunity
+     v 
     })
-    newCom.vertices.collect().foreach(f=>println("id is "+f._1+" sum is"+f._2))
+    newCom.vertices.collect().foreach(f=>println(f))
+  
+    
+    
+    
+    
+    
+    
+    
+    
   }
   private def exchangeMsg(et:EdgeTriplet[VertexInfo,Double]) = { 
     val m1 = (et.dstId,Map(et.srcAttr.community->(et.srcAttr.communitySigmaTot,et.attr))) 
@@ -114,7 +137,7 @@ object test {
     })
       infoMap.toMap
   }
-  private def q(currCommunityId:Long, joinCommunityId:Long, joinCommunitySigmaTot:Long, edgeWeightInJoinCommunity:Long, adjacentWeight:Long, selfWeight:Long, totalEdgeWeight:Long) : Double = { 
+  private def q(currCommunityId:Long, joinCommunityId:Long, joinCommunitySigmaTot:Double, edgeWeightInJoinCommunity:Double, adjacentWeight:Double, selfWeight:Double, totalEdgeWeight:Double) : Double = { 
 	  	val isCurrentCommunity = (currCommunityId.equals(joinCommunityId)); 
  		val M = totalEdgeWeight;  
  	  	val k_i_in =   edgeWeightInJoinCommunity; 
