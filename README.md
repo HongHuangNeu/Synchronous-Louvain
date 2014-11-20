@@ -19,7 +19,7 @@ For node 7, the sum of the weights of the links incident to nodes in the communi
 For node 2, the sum of the weights of the links incident to nodes in the community(sigma tot for community 2) is 4.0.
 
 
-##Adjacent Weights
+##Adjacent Weights (k_i)
 The sum of the weights of the links incident to node 3 is 1.0+1.0+2.0=4.0, so k_i=4.0 for node 3. 
 
 The sum of the weights of the links incident to node 7 is 1.0+1.0+4.0=6.0, so k_i=6.0 for node 7.
