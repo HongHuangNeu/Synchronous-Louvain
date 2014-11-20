@@ -1,5 +1,6 @@
 package tt
 import org.apache.spark.SparkContext
+import java.lang.Math
 import org.apache.spark.SparkContext._
 import org.apache.spark.SparkConf
 import org.apache.spark.graphx._
@@ -21,6 +22,8 @@ object test {
      * */
     val conf = new SparkConf().setAppName("hello").setMaster("local")
     val sc=new SparkContext(conf)
+    
+    
     
     /*
      * Graph initialization
@@ -46,14 +49,17 @@ object test {
      * */
     //fill in adjacent weights with mapreduceTriplet
     val vertexGroup: VertexRDD[(Double)] =graph.mapReduceTriplets(et=>Iterator((et.srcId,et.attr), (et.dstId,et.attr)) , (e1,e2)=>e1+e2)
-    val LouvainGraph=graph.outerJoinVertices(vertexGroup)((vid,name,weight)=>{val Info=new VertexInfo(); Info.community=vid;Info.communitySigmaTot=weight.getOrElse(0.0);Info.adjacentWeight=weight.getOrElse(0.0);Info  })
+    
+    //initializing the vertex. for the purpose of verification, the selfWeight variable is set to 1.0, which means the total weight of the internal edges of the community in the "previous level" is 0.5. Because this is an undirected graph, the self-loop is weighted 0.5x2=1.0
+    val LouvainGraph=graph.outerJoinVertices(vertexGroup)((vid,name,weight)=>{val Info=new VertexInfo(); Info.selfWeight=1.0;Info.community=vid;Info.communitySigmaTot=weight.getOrElse(0.0);Info.adjacentWeight=weight.getOrElse(0.0);Info  })
+
     println("adjacentWeights")
     LouvainGraph.vertices.collect().foreach(f=>println(f))
     
     /*
      * calculate total weight of the network
      * */
-    //The total weight of the network
+    //The total weight of the network, it is twice the actual total weight of the whole graph.Because the self-loop will be considered once, the other edges will be considered twice.
     val graphWeight = LouvainGraph.vertices.values.map(v=> v.selfWeight+v.adjacentWeight).reduce(_+_)
     println("total weight of the graph:"+graphWeight)
     var totalGraphWeight = sc.broadcast(graphWeight) 
@@ -79,11 +85,19 @@ object test {
      * update community
      * */
     val newCom=newLouvainGraph.outerJoinVertices(communityInfo)((vid,v,d)=>{
-     var maxGain=0.0; 
-     var bestCommunity=v.community
-     val bigMap = d.reduceLeft(_ ++ _);
+      var maxGain=0.0
+      val bigMap = d.reduceLeft(_ ++ _);
+      if(bigMap.contains(v.community))
+      {maxGain=q(v.community,v.community,v.communitySigmaTot,bigMap(v.community)._2,v.adjacentWeight,v.selfWeight,graphWeight/2)}
+      else
+      {
+        maxGain=0.0 /*if bigMap does not contain the community of this node, the only
+        reason is that he is in the community with only himself, in this case, removing the node from the current community makes no difference to the total modularity, because you are doing nothing*/
+      }
+      var bestCommunity=v.community
+     
      bigMap.foreach{case (communityId,(sigmaTot,edgeWeight))=>{
-       val gain=q(v.community,communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight)
+       val gain=q(v.community,communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight/2)
       if(gain>maxGain)
       {
         maxGain=gain
@@ -92,18 +106,15 @@ object test {
      }
      
      };
-     v.community=bestCommunity
+     if(v.community!=bestCommunity)
+     {v.community=bestCommunity
+      v.changed=true 
+     }
      v 
     })
     newCom.vertices.collect().foreach(f=>println(f))
   
-    
-    
-    
-    
-    
-    
-    
+   
     
   }
   private def exchangeMsg(et:EdgeTriplet[VertexInfo,Double]) = { 
@@ -154,18 +165,21 @@ object test {
  		val M = totalEdgeWeight;
  		var k_i_in=0.0
  		
- 		if(joinOriginalCommunity)
- 		{
- 		 k_i_in=edgeWeightInJoinCommunity+selfWeight 
- 		}else{
+ 		
  	  	 k_i_in =   edgeWeightInJoinCommunity; 
- 		}
+ 		
  		val k_i = adjacentWeight + selfWeight; 
  		
  		
  		var sigma_tot=0.0
  		if(joinOriginalCommunity)
  		{ sigma_tot = joinCommunitySigmaTot-k_i;}
+ 		/*if you are calculating gain of modularity for the current community,previously in the calculation
+ 		* of sigmaTot for the community the edge weight of the current node and his self loop(selfWeight) is 
+ 		* included. Now we are artificially "adding" the node the the original community and therefore the adjacent edges  
+ 		*self loop should not be included in the sigmaTot of the current community
+ 		* */
+ 		
  		else{
  		  sigma_tot=joinCommunitySigmaTot
  		}
