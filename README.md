@@ -6,7 +6,8 @@ In the code, I built a toy example to verify the correctness of one iteration of
 
 The numbers inside the circle are vertice id and all the other numbers are edge weights. I have added self loop on purpose to verify the correctness of the program. The weight of selft loop is twice the weight of the community that the current node represents. For instance, you can see that node 3 has a self loop of weight 1.0, so in the previous level the community that node 3 represents now has a total internal weight of 0.5, 0.5x2=1.
 
-Initisally, every node is in his own community. The total weight of edges in this graph is 12, so m is 12, 2m is 24.
+#Initial Setting
+Initially, every node is in his own community. The total weight of edges in this graph is 12, so m is 12, 2m is 24.
 
 For node 3, the sum of the weights of the links incident to nodes in the community(sigma tot for community 3) is 4.0. 
 
