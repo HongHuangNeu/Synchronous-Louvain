@@ -45,6 +45,8 @@ If he stays in the current community, the gain is 0 because you are doing nothin
 
 If he joins community 7, the weight from community 7 to node 5 is 4.0, so k_i_in is 4.0. The gain of modularity(ignore the scalar 1/2m) is k_i_in-(sima_tot*k_i)/m=4.0-(6.0*10.0)/12=-1<0.
 
+If he joins community 2, the weight from community 2 to node 5 is 3.0, so k_i_in is 3.0. The gain of modularity(ignore the scalar 1/2m) is k_i_in-(sima_tot*k_i)/m=3.0-(4.0*10.0)/12=3-10/3=-1/3<0.
+
 So node 5 should stay in his original community.
 
 ###For node 7:
