@@ -9,6 +9,7 @@ The numbers inside the circle are vertice id and all the other numbers are edge 
 #Initial Setting
 Initially, every node is in his own community. The total weight of edges in this graph is 12, so m is 12, 2m is 24.
 
+##Sigma Tot
 For node 3, the sum of the weights of the links incident to nodes in the community(sigma tot for community 3) is 4.0. 
 
 For node 5, the sum of the weights of the links incident to nodes in the community(sigma tot for community 5) is 10.0. 
@@ -18,7 +19,7 @@ For node 7, the sum of the weights of the links incident to nodes in the communi
 For node 2, the sum of the weights of the links incident to nodes in the community(sigma tot for community 2) is 4.0.
 
 
-
+##Adjacent Weights
 The sum of the weights of the links incident to node 3 is 1.0+1.0+2.0=4.0, so k_i=4.0 for node 3. 
 
 The sum of the weights of the links incident to node 7 is 1.0+1.0+4.0=6.0, so k_i=6.0 for node 7.
@@ -28,8 +29,9 @@ The sum of the weights of the links incident to node 2 is 1.0+3.0=4.0, so k_i=4.
 The sum of the weights of the links incident to node 5 is 1.0+3.0+4.0+2.0=10.0, so k_i=10.0 for node 5.
 
 
+##Choice of community
 
-For node 3:
+###For node 3:
 
 If he stays in the current community, the gain is 0 because you are doing nothing(removing a node from the community of its own and then add it to the community of its own). If he joins community 7, the weight from community 7 to node 3 is 1.0, so k_i_in is 1.0, the gain of modularity(ignore the scalar 1/2m) is k_i_in-(sima_tot*k_i)/m=1.0-(6.0*4.0)/12=-1.0. 
 
