@@ -79,6 +79,7 @@ object test {
      * */
     //exchange community information and sigmaTot, prepare to calculate k_i_in
     val communityInfo =newLouvainGraph.mapReduceTriplets(exchangeMsg, mergeMsg)
+    println("sigmaTot knowledge of neighbours")
     communityInfo.values.collect.foreach(f=>println(f))
     
     /*
@@ -88,16 +89,17 @@ object test {
       var maxGain=0.0
       val bigMap = d.reduceLeft(_ ++ _);
       if(bigMap.contains(v.community))
-      {maxGain=q(v.community,v.community,v.communitySigmaTot,bigMap(v.community)._2,v.adjacentWeight,v.selfWeight,graphWeight/2)}
+      {maxGain=q(v.community,v.community,v.communitySigmaTot,bigMap(v.community)._2,v.adjacentWeight,v.selfWeight,graphWeight/2)}// note, here I divide the graphWeight by 2
       else
       {
         maxGain=0.0 /*if bigMap does not contain the community of this node, the only
         reason is that he is in the community with only himself, in this case, removing the node from the current community makes no difference to the total modularity, because you are doing nothing*/
       }
       var bestCommunity=v.community
-     
+     println("for node "+vid+" the gain of staying in"+bestCommunity+" is"+maxGain)
      bigMap.foreach{case (communityId,(sigmaTot,edgeWeight))=>{
        val gain=q(v.community,communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight/2)
+       println("for node"+vid+" the gain of moving to community "+communityId+" is "+gain)
       if(gain>maxGain)
       {
         maxGain=gain
@@ -168,7 +170,7 @@ object test {
  		
  	  	 k_i_in =   edgeWeightInJoinCommunity; 
  		
- 		val k_i = adjacentWeight + selfWeight; 
+ 		val k_i = adjacentWeight + selfWeight;//self-loop is included in the calculation of k_i 
  		
  		
  		var sigma_tot=0.0
