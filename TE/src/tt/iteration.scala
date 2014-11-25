@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 import scala.collection._
 import java.util.StringTokenizer;
 
-object run {
+object iteration {
 
   def main(args: Array[String]): Unit = {
     println("real run");
@@ -31,12 +31,12 @@ object run {
     val src = scala.io.Source.fromFile("/home/honghuang/Documents/benchmark/weighted_networks/network.dat") 
   //  val src = scala.io.Source.fromFile("/home/honghuang/test.dat") 
     /*initialize nodes for the graph*/
-    val numNodes=args(0).toInt
-    var vertices = new Array[(Long,Long)](numNodes)
-    var i=0
+    val numNodes=args(0).toLong
+    var vertices = new Array[(Long,Long)](0)
+    var i=0L
     while(i<numNodes)
     {
-      vertices(i)=(i+1,i+1)
+      vertices=vertices++Array((i+1,i+1))
       i+=1
     }
     
@@ -84,74 +84,96 @@ object run {
     val vertexGroup: VertexRDD[(Double)] =graph.mapReduceTriplets(et=>Iterator((et.srcId,et.attr), (et.dstId,et.attr)) , (e1,e2)=>e1+e2)
     
     //initializing the vertex. for the purpose of verification, the selfWeight variable is set to 1.0, which means the total weight of the internal edges of the community in the "previous level" is 0.5. Because this is an undirected graph, the self-loop is weighted 0.5x2=1.0
-    val LouvainGraph=graph.outerJoinVertices(vertexGroup)((vid,name,weight)=>{val Info=new VertexInfo(); Info.selfWeight=1.0;Info.community=vid;Info.communitySigmaTot=weight.getOrElse(0.0);Info.adjacentWeight=weight.getOrElse(0.0);Info  })
+    var LouvainGraph=graph.outerJoinVertices(vertexGroup)((vid,name,weight)=>{val Info=new VertexInfo(); Info.selfWeight=0.0;Info.community=vid;Info.communitySigmaTot=weight.getOrElse(0.0);Info.adjacentWeight=weight.getOrElse(0.0);Info  })
 
     println("adjacentWeights")
     LouvainGraph.vertices.collect().foreach(f=>println(f))
     
-    /*
-     * calculate total weight of the network
-     * */
-    //The total weight of the network, it is twice the actual total weight of the whole graph.Because the self-loop will be considered once, the other edges will be considered twice.
-    val graphWeight = LouvainGraph.vertices.values.map(v=> v.selfWeight+v.adjacentWeight).reduce(_+_)
-    println("total weight of the graph:"+graphWeight)
-    var totalGraphWeight = sc.broadcast(graphWeight) 
-    /*
-     *operations of collecting sigmaTot 
-     * */
-    //Calculate sigma tot for each community
-    val sigmaTot=LouvainGraph.vertices.values.map(v=>(v.community,v.selfWeight+v.adjacentWeight)).reduceByKey(_+_)
-    //collect the result as map for look up
-    val sigmaTotMap=sigmaTot.collectAsMap();
-    println("The sigmaTot map"+sigmaTotMap)
-    //assign to each vertex the sigmaTot value of its community
-    val newLouvainGraph=LouvainGraph.mapVertices((id,d)=>{d.communitySigmaTot=sigmaTotMap(d.community); d})
-    
-    /*
-     * exchange community information and sigmaTot
-     * */
-    //exchange community information and sigmaTot, prepare to calculate k_i_in
-    val communityInfo =newLouvainGraph.mapReduceTriplets(exchangeMsg, mergeMsg)
-    println("sigmaTot knowledge of neighbours")
-    communityInfo.values.collect.foreach(f=>println(f))
-    
-    /*
-     * update community
-     * */
-    val newCom=newLouvainGraph.outerJoinVertices(communityInfo)((vid,v,d)=>{
-      var maxGain=0.0
-      val bigMap = d.reduceLeft(_ ++ _);
-      if(bigMap.contains(v.community))
-      {maxGain=q(v.community,v.community,v.communitySigmaTot,bigMap(v.community)._2,v.adjacentWeight,v.selfWeight,graphWeight/2)}// note, here I divide the graphWeight by 2
-      else
-      {
-        maxGain=0.0 /*if bigMap does not contain the community of this node, the only
-        reason is that he is in the community with only himself, in this case, removing the node from the current community makes no difference to the total modularity, because you are doing nothing*/
-      }
-      var bestCommunity=v.community
-     println("for node "+vid+" the gain of staying in"+bestCommunity+" is"+maxGain)
-     bigMap.foreach{case (communityId,(sigmaTot,edgeWeight))=>{
-       val gain=q(v.community,communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight/2)
-       println("for node"+vid+" the gain of moving to community "+communityId+" is "+gain)
-      if(gain>maxGain)
-      {
-        maxGain=gain
-        bestCommunity=communityId
-      }
-     }
-     
-     };
-     if(v.community!=bestCommunity)
-     {v.community=bestCommunity
-      v.changed=true 
-     }
-     v 
-    })
-    newCom.vertices.collect().foreach(f=>println(f))
-  
-    
-   println("real run ends")
-    
+    var changed=false
+    var counter=0
+    var converge=false
+		   
+    do{  
+		    /*
+		     * calculate total weight of the network
+		     * */
+		    //The total weight of the network, it is twice the actual total weight of the whole graph.Because the self-loop will be considered once, the other edges will be considered twice.
+		    val graphWeight = LouvainGraph.vertices.values.map(v=> v.selfWeight+v.adjacentWeight).reduce(_+_)
+		    println("total weight of the graph:"+graphWeight)
+		    var totalGraphWeight = sc.broadcast(graphWeight) 
+		    /*
+		     *operations of collecting sigmaTot 
+		     * */
+		    //Calculate sigma tot for each community
+		    val sigmaTot=LouvainGraph.vertices.values.map(v=>(v.community,v.selfWeight+v.adjacentWeight)).reduceByKey(_+_)
+		    //collect the result as map for look up
+		    val sigmaTotMap=sigmaTot.collectAsMap();
+		    println("The sigmaTot map"+sigmaTotMap)
+		    //assign to each vertex the sigmaTot value of its community
+		    val newLouvainGraph=LouvainGraph.mapVertices((id,d)=>{d.communitySigmaTot=sigmaTotMap(d.community); d})
+		    
+		    /*
+		     * exchange community information and sigmaTot
+		     * */
+		    //exchange community information and sigmaTot, prepare to calculate k_i_in
+		    val communityInfo =newLouvainGraph.mapReduceTriplets(exchangeMsg, mergeMsg)
+		    //println("sigmaTot knowledge of neighbours")
+		    //communityInfo.values.collect.foreach(f=>println(f))
+		    
+		    /*
+		     * update community
+		     * */
+		    val newCom=newLouvainGraph.outerJoinVertices(communityInfo)((vid,v,d)=>{
+		      var maxGain=0.0
+		      val bigMap = d.reduceLeft(_ ++ _);
+		      if(bigMap.contains(v.community))
+		      {maxGain=q(v.community,v.community,v.communitySigmaTot,bigMap(v.community)._2,v.adjacentWeight,v.selfWeight,graphWeight/2)}// note, here I divide the graphWeight by 2
+		      else
+		      {
+		        maxGain=0.0 /*if bigMap does not contain the community of this node, the only
+		        reason is that he is in the community with only himself, in this case, removing the node from the current community makes no difference to the total modularity, because you are doing nothing*/
+		      }
+		      var bestCommunity=v.community
+		     //println("for node "+vid+" the gain of staying in"+bestCommunity+" is"+maxGain)
+		     bigMap.foreach{case (communityId,(sigmaTot,edgeWeight))=>{
+		       val gain=q(v.community,communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight/2)
+		       //println("for node"+vid+" the gain of moving to community "+communityId+" is "+gain)
+		      if(gain>maxGain)
+		      {
+		        maxGain=gain
+		        bestCommunity=communityId
+		      }
+		     }
+		     
+		     };
+		     val r = scala.util.Random
+		     if(v.community!=bestCommunity&&r.nextFloat>0.5)
+		     {v.community=bestCommunity
+		      v.changed=true 
+		     }else{
+		       v.changed=false
+		     }
+		     if(v.community==bestCommunity)
+		     {
+		       v.converge=true
+		     }else{
+		       v.converge=false
+		     }
+		     v 
+		    })
+		    //newCom.vertices.collect().foreach(f=>println(f))
+		  
+		      converge=newCom.vertices.values.map(v=>v.converge).reduce(_&&_)
+		    counter=counter+1
+		    println("run "+counter+"rounds")
+		    println("changed?"+changed)
+		    
+		    LouvainGraph=newCom
+		    
+    }while(!converge)
+       println("execution ends")
+       LouvainGraph.vertices.collect().foreach(f=>println(f))
+       println("total runs"+counter)
   }
   private def exchangeMsg(et:EdgeTriplet[VertexInfo,Double]) = { 
     val m1 = (et.dstId,Map(et.srcAttr.community->(et.srcAttr.communitySigmaTot,et.attr))) 
