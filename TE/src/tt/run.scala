@@ -144,12 +144,17 @@ object run {
      if(v.community!=bestCommunity)
      {v.community=bestCommunity
       v.changed=true 
+     }else{
+       v.changed=false
      }
      v 
     })
     newCom.vertices.collect().foreach(f=>println(f))
-  
-    
+    val converge=newCom.vertices.values.map(v=>v.changed).reduce(_&&_)
+     val endmodularity=newCom.triplets.map(v=>{ if(v.srcAttr.community==v.dstAttr.community){1}else{0}}).reduce(_+_)
+       println("all different "+endmodularity)
+       println("all changed?"+converge)
+       
    println("real run ends")
     
   }

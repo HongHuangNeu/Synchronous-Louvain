@@ -116,8 +116,7 @@ object test {
     })
     newCom.vertices.collect().foreach(f=>println(f))
   
-   
-    
+  
   }
   private def exchangeMsg(et:EdgeTriplet[VertexInfo,Double]) = { 
     val m1 = (et.dstId,Map(et.srcAttr.community->(et.srcAttr.communitySigmaTot,et.attr))) 
