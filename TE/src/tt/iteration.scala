@@ -88,7 +88,8 @@ object iteration {
 
     println("adjacentWeights")
     LouvainGraph.vertices.collect().foreach(f=>println(f))
-    
+    println("Louvain graph edges")
+    LouvainGraph.edges.collect.foreach(f=>println(f))
     var changed=false
     var counter=0
     var converge=false
@@ -119,8 +120,10 @@ object iteration {
 		    
 		    //val newLouvainGraph=LouvainGraph.mapVertices((id,d)=>{d.communitySigmaTot=sigmaTotMap(d.community); d})
 		    val newVert = LouvainGraph.vertices.map { case (id, d) => {d.communitySigmaTot=sigmaTotMap(d.community);(id,d)} }
-		    val newLouvainGraph = Graph(newVert, graph.edges)
-		    
+		    val newLouvainGraph = Graph(newVert, LouvainGraph.edges)
+		    //graph edges
+		    //println("graph edges")
+		    //graph.edges.collect.foreach(f=>println(f))
 		    newLouvainGraph.vertices.collect().foreach(f=>println("vertice print"+f))
 		    /*
 		     * exchange community information and sigmaTot
@@ -164,7 +167,7 @@ object iteration {
 		     }else{
 		       v.converge=false
 		     }
-		     if(v.community!=bestCommunity&&r.nextFloat>0.5)
+		     if(v.community!=bestCommunity&&r.nextFloat>=0.5)
 		     {v.community=bestCommunity
 		      v.changed=true 
 		     }else{
