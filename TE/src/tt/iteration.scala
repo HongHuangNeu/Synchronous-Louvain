@@ -122,8 +122,8 @@ object iteration {
 		    val newVert = LouvainGraph.vertices.map { case (id, d) => {d.communitySigmaTot=sigmaTotMap(d.community);(id,d)} }
 		    val newLouvainGraph = Graph(newVert, LouvainGraph.edges)
 		    //graph edges
-		    //println("graph edges")
-		    //graph.edges.collect.foreach(f=>println(f))
+		    println("graph edges")
+		    graph.edges.collect.foreach(f=>println(f))
 		    newLouvainGraph.vertices.collect().foreach(f=>println("vertice print"+f))
 		    /*
 		     * exchange community information and sigmaTot
