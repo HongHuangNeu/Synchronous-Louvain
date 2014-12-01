@@ -99,15 +99,16 @@ object iteration {
 	//	    var totalGraphWeight = sc.broadcast(graphWeight) 
 		//   val modularity=LouvainGraph.triplets.map(v=>if(v.srcAttr.community==v.dstAttr.community){v.attr-(v.srcAttr.adjacentWeight+v.srcAttr.selfWeight)*(v.dstAttr.adjacentWeight+v.dstAttr.selfWeight)/graphWeight}else{0.0}).reduce(_+_)*2/graphWeight
 		  var gw=0.0
+		  val graphWeight = LouvainGraph.vertices.values.map(v=> v.selfWeight+v.adjacentWeight).reduce(_+_)
+		    println("total weight of the graph:"+graphWeight)
+		    var totalGraphWeight = sc.broadcast(graphWeight)
+		    gw=graphWeight
     do{  
 		    /*
 		     * calculate total weight of the network
 		     * */
 		    //The total weight of the network, it is twice the actual total weight of the whole graph.Because the self-loop will be considered once, the other edges will be considered twice.
-		    val graphWeight = LouvainGraph.vertices.values.map(v=> v.selfWeight+v.adjacentWeight).reduce(_+_)
-		    println("total weight of the graph:"+graphWeight)
-		    var totalGraphWeight = sc.broadcast(graphWeight)
-		    gw=graphWeight
+		    
 		    /*
 		     *operations of collecting sigmaTot 
 		     * */
