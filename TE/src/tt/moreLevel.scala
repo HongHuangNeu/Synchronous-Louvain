@@ -77,10 +77,11 @@ object moreLevel {
     //initializing the vertex. for the purpose of verification, the selfWeight variable is set to 1.0, which means the total weight of the internal edges of the community in the "previous level" is 0.5. Because this is an undirected graph, the self-loop is weighted 0.5x2=1.0
     var LouvainGraph=graph.outerJoinVertices(vertexGroup)((vid,name,weight)=>{val Info=new VertexInfo(); Info.selfWeight=0.0;Info.community=vid;Info.communitySigmaTot=weight.getOrElse(0.0);Info.adjacentWeight=weight.getOrElse(0.0);Info  })
 
-    println("adjacentWeights")
-    LouvainGraph.vertices.collect().foreach(f=>println(f))
-    println("Louvain graph edges")
-    LouvainGraph.edges.collect.foreach(f=>println(f))
+    Logger.writeLog("adjacentWeights")
+    
+    LouvainGraph.vertices.collect().foreach(f=>Logger.writeLog(f.toString))
+    Logger.writeLog("Louvain graph edges")
+    LouvainGraph.edges.collect.foreach(f=>Logger.writeLog(f.toString))
     LouvainGraph
  }
  
@@ -99,10 +100,10 @@ object moreLevel {
 		     * */
 		    //The total weight of the network, it is twice the actual total weight of the whole graph.Because the self-loop will be considered once, the other edges will be considered twice.
 		    val graphWeight = LouvainGraph.vertices.values.map(v=> v.selfWeight+v.adjacentWeight).reduce(_+_)
-		    println("total weight of the graph:"+graphWeight)
+		  Logger.writeLog("total weight of the graph:"+graphWeight)
 		    var totalGraphWeight = sc.broadcast(graphWeight)
 		    gw=graphWeight
-		     println("initial modularity"+moreLevel.modularity(initialGraph,graphWeight))
+		     Logger.writeLog("initial modularity"+moreLevel.modularity(initialGraph,graphWeight))
     do{  
 		    
 		    /*
@@ -112,7 +113,7 @@ object moreLevel {
 		    val sigmaTot=LouvainGraph.vertices.values.map(v=>(v.community,v.selfWeight+v.adjacentWeight)).reduceByKey(_+_)
 		    //collect the result as map for look up
 		    val sigmaTotMap=sigmaTot.collectAsMap();
-		    println("The sigmaTot map"+sigmaTotMap)
+		    Logger.writeLog("The sigmaTot map"+sigmaTotMap)
 		    //assign to each vertex the sigmaTot value of its community
 		    
 		    //val newLouvainGraph=LouvainGraph.mapVertices((id,d)=>{d.communitySigmaTot=sigmaTotMap(d.community); d})
@@ -121,7 +122,7 @@ object moreLevel {
 		    //graph edges
 		    //println("graph edges")
 		    //graph.edges.collect.foreach(f=>println(f))
-		    newLouvainGraph.vertices.collect().foreach(f=>println("vertice print"+f))
+		    newLouvainGraph.vertices.collect().foreach(f=>Logger.writeLog("vertice print"+f))
 		    /*
 		     * exchange community information and sigmaTot
 		     * */
@@ -130,7 +131,7 @@ object moreLevel {
 		    //println("sigmaTot knowledge of neighbours")
 		    //communityInfo.values.collect.foreach(f=>println(f))
 		    
-		    communityInfo.values.collect().foreach(f=>println("neighbouring info"+f))
+		    communityInfo.values.collect().foreach(f=>Logger.writeLog("neighbouring info"+f))
 		    /*
 		     * update community
 		     * */
@@ -145,10 +146,10 @@ object moreLevel {
 		        reason is that he is in the community with only himself, in this case, removing the node from the current community makes no difference to the total modularity, because you are doing nothing*/
 		      }
 		      var bestCommunity=v.community
-		     println("for node "+vid+" the gain of staying in"+bestCommunity+" is"+maxGain+"the sigmaTot of the current community is"+v.communitySigmaTot)
+		     Logger.writeLog("for node "+vid+" the gain of staying in"+bestCommunity+" is"+maxGain+"the sigmaTot of the current community is"+v.communitySigmaTot)
 		     bigMap.foreach{case (communityId,(sigmaTot,edgeWeight))=>{
 		       val gain=q(v.community,communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight/2)//22
-		       println("for node"+vid+" the gain of moving to community "+communityId+" is "+gain+" "+"the communitySigmaTot is"+sigmaTot)
+		      Logger.writeLog("for node"+vid+" the gain of moving to community "+communityId+" is "+gain+" "+"the communitySigmaTot is"+sigmaTot)
 		      if(gain>maxGain)
 		      {
 		        maxGain=gain
@@ -177,26 +178,26 @@ object moreLevel {
 		  
 		      converge=newCom.vertices.values.map(v=>v.converge).reduce(_&&_)
 		    counter=counter+1
-		    println("run "+counter+"rounds")
-		    println("changed?"+changed)
+		    Logger.writeLog("run "+counter+"rounds")
+		    Logger.writeLog("changed?"+changed)
 		    
 		    LouvainGraph=newCom
-		    println("new vertives")
+		    Logger.writeLog("new vertives")
 		    LouvainGraph.vertices.collect().foreach(f=>println(f))
     }while(!converge)
-       println("execution ends")
+       Logger.writeLog("execution ends")
        LouvainGraph.vertices.collect().foreach(f=>println(f))
-       println("total runs"+counter)
+       Logger.writeLog("total runs"+counter)
       // println("start modularity "+modularity)
        val someSame=LouvainGraph.triplets.map(v=>if(v.srcAttr.community==v.dstAttr.community){1}else{0}).reduce(_+_)
-       println("someSame "+someSame)
+       Logger.writeLog("someSame "+someSame)
       // val temp=LouvainGraph.vertices.map(v=>(v._2.community,1)).reduceByKey((x,y)=>1)
       // println("different communities"+temp.count())
       // temp.collect().foreach(f=>println(f))
        
       val modul=modularity(LouvainGraph,gw)
         //LouvainGraph.triplets.map(v=>if(v.srcAttr.community==v.dstAttr.community){v.attr-(v.srcAttr.adjacentWeight+v.srcAttr.selfWeight)*(v.dstAttr.adjacentWeight+v.dstAttr.selfWeight)/gw}else{0.0}).reduce(_+_)*2/gw
-      println("final modularity"+modul)
+      Logger.writeLog("final modularity"+modul)
     LouvainGraph
  }
  /*
@@ -204,7 +205,7 @@ object moreLevel {
   * */
  def needMoreLevel(Graph:Graph[VertexInfo,Double]):Boolean={
    val someSame=Graph.triplets.map(v=>if(v.srcAttr.community==v.dstAttr.community){1}else{0}).reduce(_+_)
- if(someSame==0){println("terminates!") 
+ if(someSame==0){Logger.writeLog("terminates!") 
    return false;}
  else return true;
  }
@@ -233,14 +234,14 @@ object moreLevel {
      }
      result
    }).reduceByKey(_+_) //if every community consist of only the node itself, there will be no member in this map
-   println("internel weights")
-   a.collect().foreach(f=>println(f))
+   Logger.writeLog("internel weights")
+   a.collect().foreach(f=>Logger.writeLog(f.toString))
    val internelWeights=a.collectAsMap
    
    val b=initialGraph.vertices.values.flatMap(e=>{
      Array((e.community,e.selfWeight))  // selftWeight is already doubled, so no need to double here
    }).reduceByKey(_+_)
-   println("selfWeihts sum")
+   Logger.writeLog("selfWeihts sum")
    b.collect.foreach(f=>println(f))
    
    val selfLoops=scala.collection.mutable.HashMap[Long,Double]()
@@ -280,8 +281,8 @@ object moreLevel {
    var edges=new Array[Edge[Double]](0)
    
    val edgeMap=edg.collectAsMap
-   println("new edges")
-   edgeMap.foreach(f=>println(f))
+   Logger.writeLog("new edges")
+   edgeMap.foreach(f=>Logger.writeLog(f.toString))
    //edges=edges++Array(Edge(x,y,weight))
    edgeMap.foreach(f=>edges=edges++Array(Edge(f._1._1,f._1._2,f._2)))
    

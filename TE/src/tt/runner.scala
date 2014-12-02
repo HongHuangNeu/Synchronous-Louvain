@@ -19,7 +19,7 @@ def main(args: Array[String]): Unit = {
     /*
      * Spark initialization
      * */
-    val debug=true
+    val debug=true   //when you just want to look at one level, set this flag to false
     val conf = new SparkConf().setAppName("hello").setMaster("local")
     val sc=new SparkContext(conf)
     //println("program parameter is "+args(0))
@@ -38,21 +38,22 @@ def main(args: Array[String]): Unit = {
    results(i-1)=result
   val tmp=moreLevel.compressGraph(result,sc)
   
-  println("info of new graph")
-  tmp.vertices.collect.foreach(f=>println(f))
-  tmp.edges.collect.foreach(f=>println(f))
+  Logger.writeLog("info of new graph")
+  tmp.vertices.collect.foreach(f=>Logger.writeLog(f.toString))
+  tmp.edges.collect.foreach(f=>Logger.writeLog(f.toString))
   input=tmp
  
   i=i+1
   
   }while(moreLevel.needMoreLevel(result)&&debug);
-  println("in total"+(i-2)+"levels")
+  Logger.writeLog("in total"+(i-2)+"levels")
   for(i<-0 until i-2)
   {
     val r=results(i)
-    println("the results for the"+(i+1)+"level")
-    r.vertices.collect.foreach(f=>println(f))
+    Logger.writeLog("the results for the"+(i+1)+"level")
+    r.vertices.collect.foreach(f=>Logger.writeLog(f.toString))
     r.vertices.coalesce(1,true).saveAsTextFile("/home/honghuang/result"+i.toString) 
   }
+  Logger.close
 }
 }
