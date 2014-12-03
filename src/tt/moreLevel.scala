@@ -216,11 +216,23 @@ object moreLevel {
         v
       })
 
-      converge = newCom.vertices.values.map(v => v.converge).reduce(_ && _)
+     // val conv = newCom.vertices.values.map(v => v.converge).reduce(_ && _)// may be problematic because of lazy evaluation
+      
+      val conv = newCom.vertices.values.map(v => if(v.converge){0}else{1}).reduce(_ + _)
+      if(conv==0)
+      {converge=true}
+      else{
+        converge=false
+      }
       counter = counter + 1
       Logger.writeLog("run " + counter + "rounds")
       Logger.writeLog("changed?" + changed)
-
+     //be careful
+      val tmpGraph=LouvainGraph
+      tmpGraph.vertices.unpersist(blocking = false)
+      tmpGraph.edges.unpersist(blocking=false)
+      //end becareful
+      
       LouvainGraph = newCom
     //  Logger.writeLog("new vertives")
     //  LouvainGraph.vertices.collect().foreach(f => Logger.writeLog(f.toString))
