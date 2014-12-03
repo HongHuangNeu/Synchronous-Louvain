@@ -21,15 +21,17 @@ object runner {
      * Spark initialization
      * */
 
-    val conf = new SparkConf().setAppName("hello").setMaster("local")
+    val conf = new SparkConf().setAppName("hello").setMaster("local").set("spark.executor.memory", "3g")
     val sc = new SparkContext(conf)
 
     println("test")
+    //moreLevel.createLouvainGraphFromMap("/home/honghuang/Documents/benchmark/4_1/network.dat", sc, 4)
+    
 
     val path = Setting.graphHome + "/" + Setting.graphFileName
 
-    val initialGraph = moreLevel.createLouvainGraph(path, sc, Setting.numOfNodes)
-    var results = new Array[Graph[VertexInfo, Double]](10)
+    val initialGraph = moreLevel.createLouvainGraphFromMap(path, sc, Setting.numOfNodes)
+    //var results = new Array[Graph[VertexInfo, Double]](10000)
     var input = initialGraph
     var result = initialGraph
     var i = 1
@@ -37,26 +39,22 @@ object runner {
 
       println("the " + i + "run")
       result = moreLevel.louvainOneLevel(input, sc, 0.6)
-      results(i - 1) = result
+      //results(i - 1) = result
+      result.vertices.coalesce(1, true).saveAsTextFile(Setting.graphHome + "/result" + i.toString)
       val tmp = moreLevel.compressGraph(result, sc)
 
       Logger.writeLog("info of new graph")
       tmp.vertices.collect.foreach(f => Logger.writeLog(f.toString))
       tmp.edges.collect.foreach(f => Logger.writeLog(f.toString))
       input = tmp
-
+      Logger.i=Logger.i+1
       i = i + 1
 
     } while (moreLevel.needMoreLevel(result) && (!Setting.oneLevel));
     Logger.writeLog("in total" + (i - 2) + "levels")
-    for (i <- 0 until i - 2) {
-      val r = results(i)
-      Logger.writeLog("the results for the" + (i + 1) + "level")
-      r.vertices.collect.foreach(f => Logger.writeLog(f.toString))
-      val fw = new FileWriter(Setting.graphHome + "/result" + i.toString + ".dat")
-
-      r.vertices.coalesce(1, true).saveAsTextFile(Setting.graphHome + "/result" + i.toString)
-    }
+    
+    
     Logger.close
+   
   }
 }

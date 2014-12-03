@@ -74,6 +74,65 @@ object moreLevel {
     LouvainGraph.edges.collect.foreach(f => Logger.writeLog(f.toString))
     LouvainGraph
   }
+  
+  def createLouvainGraphFromMap(path: String, sc: SparkContext, numOfNodes: Long): Graph[VertexInfo, Double]= {
+
+    val textFile=sc.textFile(path)
+    
+    val edg=textFile.flatMap(e=>{
+      val str=new StringTokenizer(e,"\t");
+    					val id1=str.nextToken().toLong
+    					val id2=str.nextToken().toLong
+    					val w=str.nextToken().toDouble
+    					if(id1>id2)
+    					{Array(((id2,id1),w))}
+    					else{
+    					  Array(((id1,id2),w))
+    					}
+    }
+    )
+    val edges=edg.distinct
+    edges.collect().foreach(f=>println(f))
+    val edgeArray=edges.map{case (id,d)=>(1,Edge(id._1,id._2,d))}
+    val v=edgeArray.values.collect
+    v.foreach(f=>println(f))
+    val relationships: RDD[Edge[Double]] =
+      sc.parallelize(v)
+    
+     val numNodes = numOfNodes
+    var vertices = new Array[(Long, Long)](0)
+    var i = 0L
+    while (i < numNodes) {
+      vertices = vertices ++ Array((i + 1, i + 1))
+      i += 1
+    }
+
+    val nodes = sc.parallelize(vertices)
+    val graph = Graph(nodes, relationships)
+    graph.edges.collect.foreach(f=>println(f))
+    graph.vertices.collect.foreach(f=>println(f))
+    
+    
+    
+    /*
+     * collect adjacent weights of nodes in the graph
+     * */
+    //fill in adjacent weights with mapreduceTriplet
+    val vertexGroup: VertexRDD[(Double)] = graph.mapReduceTriplets(et => Iterator((et.srcId, et.attr), (et.dstId, et.attr)), (e1, e2) => e1 + e2)
+
+    //initializing the vertex. for the purpose of verification, the selfWeight variable is set to 1.0, which means the total weight of the internal edges of the community in the "previous level" is 0.5. Because this is an undirected graph, the self-loop is weighted 0.5x2=1.0
+    var LouvainGraph = graph.outerJoinVertices(vertexGroup)((vid, name, weight) => { val Info = new VertexInfo(); Info.selfWeight = 0.0; Info.community = vid; Info.communitySigmaTot = weight.getOrElse(0.0); Info.adjacentWeight = weight.getOrElse(0.0); Info })
+
+    Logger.writeLog("adjacentWeights")
+
+    LouvainGraph.vertices.collect().foreach(f => Logger.writeLog(f.toString))
+    Logger.writeLog("Louvain graph edges")
+    LouvainGraph.edges.collect.foreach(f => Logger.writeLog(f.toString))
+    LouvainGraph
+    
+    
+    
+  }
 
   def louvainOneLevel(initialGraph: Graph[VertexInfo, Double], sc: SparkContext, probability: Double): Graph[VertexInfo, Double] = {
     var changed = false
@@ -91,6 +150,7 @@ object moreLevel {
     var totalGraphWeight = sc.broadcast(graphWeight)
     gw = graphWeight
     Logger.writeLog("initial modularity" + moreLevel.modularity(initialGraph, graphWeight))
+    Logger.writeAdditionalLog("initial modularity" + moreLevel.modularity(initialGraph, graphWeight))
     do {
 
       /*
@@ -100,13 +160,13 @@ object moreLevel {
       val sigmaTot = LouvainGraph.vertices.values.map(v => (v.community, v.selfWeight + v.adjacentWeight)).reduceByKey(_ + _)
       //collect the result as map for look up
       val sigmaTotMap = sigmaTot.collectAsMap();
-      Logger.writeLog("The sigmaTot map" + sigmaTotMap)
+   //   Logger.writeLog("The sigmaTot map" + sigmaTotMap)
       //assign to each vertex the sigmaTot value of its community
 
       val newVert = LouvainGraph.vertices.map { case (id, d) => { d.communitySigmaTot = sigmaTotMap(d.community); (id, d) } }
       val newLouvainGraph = Graph(newVert, LouvainGraph.edges)
 
-      newLouvainGraph.vertices.collect().foreach(f => Logger.writeLog("vertice print" + f))
+   //   newLouvainGraph.vertices.collect().foreach(f => Logger.writeLog("vertice print" + f))
       /*
 		     * exchange community information and sigmaTot
 		     * */
@@ -115,7 +175,7 @@ object moreLevel {
       //println("sigmaTot knowledge of neighbours")
       //communityInfo.values.collect.foreach(f=>println(f))
 
-      communityInfo.values.collect().foreach(f => Logger.writeLog("neighbouring info" + f))
+    //  communityInfo.values.collect().foreach(f => Logger.writeLog("neighbouring info" + f))
       /*
 		     * update community
 		     * */
@@ -128,11 +188,11 @@ object moreLevel {
 		        reason is that he is in the community with only himself, in this case, removing the node from the current community makes no difference to the total modularity, because you are doing nothing*/
         }
         var bestCommunity = v.community
-        Logger.writeLog("for node " + vid + " the gain of staying in" + bestCommunity + " is" + maxGain + "the sigmaTot of the current community is" + v.communitySigmaTot)
+      //  Logger.writeLog("for node " + vid + " the gain of staying in" + bestCommunity + " is" + maxGain + "the sigmaTot of the current community is" + v.communitySigmaTot)
         bigMap.foreach {
           case (communityId, (sigmaTot, edgeWeight)) => {
             val gain = q(v.community, communityId, sigmaTot, edgeWeight, v.adjacentWeight, v.selfWeight, graphWeight / 2) //22
-            Logger.writeLog("for node" + vid + " the gain of moving to community " + communityId + " is " + gain + " " + "the communitySigmaTot is" + sigmaTot)
+       //     Logger.writeLog("for node" + vid + " the gain of moving to community " + communityId + " is " + gain + " " + "the communitySigmaTot is" + sigmaTot)
             if (gain > maxGain) {
               maxGain = gain
               bestCommunity = communityId
@@ -162,8 +222,8 @@ object moreLevel {
       Logger.writeLog("changed?" + changed)
 
       LouvainGraph = newCom
-      Logger.writeLog("new vertives")
-      LouvainGraph.vertices.collect().foreach(f => Logger.writeLog(f.toString))
+    //  Logger.writeLog("new vertives")
+    //  LouvainGraph.vertices.collect().foreach(f => Logger.writeLog(f.toString))
       if (Setting.oneIteration) {
         Logger.writeLog("one iteration ends")
         Logger.terminates
@@ -171,15 +231,17 @@ object moreLevel {
       }
     } while (!converge)
     Logger.writeLog("execution ends")
+    
     LouvainGraph.vertices.collect().foreach(f => Logger.writeLog(f.toString))
     Logger.writeLog("total runs" + counter)
-
+    Logger.writeAdditionalLog("total runs" + counter)//to be removed
     val someSame = LouvainGraph.triplets.map(v => if (v.srcAttr.community == v.dstAttr.community) { 1 } else { 0 }).reduce(_ + _)
     Logger.writeLog("someSame " + someSame)
 
     val modul = modularity(LouvainGraph, gw)
 
     Logger.writeLog("final modularity" + modul)
+    Logger.writeAdditionalLog("final modularity" + modul)
     LouvainGraph
   }
   /*
@@ -195,8 +257,8 @@ object moreLevel {
   def modularity(Graph: Graph[VertexInfo, Double], graphWeight: Double): Double = {
 
     val edges = Graph.triplets.map(
-      v => if (v.srcAttr.community == v.dstAttr.community) { v.attr - (v.srcAttr.adjacentWeight + v.srcAttr.selfWeight) * (v.dstAttr.adjacentWeight + v.dstAttr.selfWeight) / graphWeight } else { 0.0 }).reduce(_ + _) / graphWeight
-    val self = Graph.vertices.values.map(f => f.selfWeight / 2 - (f.selfWeight + f.adjacentWeight) * (f.selfWeight + f.adjacentWeight) / graphWeight).reduce(_ + _) / graphWeight
+      v => if (v.srcAttr.community == v.dstAttr.community) { v.attr - (v.srcAttr.adjacentWeight + v.srcAttr.selfWeight) * (v.dstAttr.adjacentWeight + v.dstAttr.selfWeight) / graphWeight } else { 0.0 }).reduce(_ + _) *2/ graphWeight
+    val self = Graph.vertices.values.map(f => f.selfWeight / 2 - (f.selfWeight + f.adjacentWeight) * (f.selfWeight + f.adjacentWeight) / graphWeight).reduce(_ + _)*2 / graphWeight
     //calculating each node with himself- question: is it necessary to multiply 2?
     return edges + self
   }
@@ -241,6 +303,7 @@ object moreLevel {
     selfLoops.foreach(f => {
       var v = new VertexInfo()
       v.community = f._1
+     
       v.selfWeight = f._2
       vertices = vertices ++ Array((f._1, v))
     })
@@ -275,7 +338,7 @@ object moreLevel {
     val vertexGroup: VertexRDD[(Double)] = graph.mapReduceTriplets(et => Iterator((et.srcId, et.attr), (et.dstId, et.attr)), (e1, e2) => e1 + e2)
 
     //initializing the vertex. for the purpose of verification, the selfWeight variable is set to 1.0, which means the total weight of the internal edges of the community in the "previous level" is 0.5. Because this is an undirected graph, the self-loop is weighted 0.5x2=1.0
-    var newGraph = graph.outerJoinVertices(vertexGroup)((vid, v, weight) => { v.communitySigmaTot = v.selfWeight + weight.getOrElse(0.0); v.adjacentWeight = weight.getOrElse(0.0); v })
+ var newGraph = graph.outerJoinVertices(vertexGroup)((vid, v, weight) => { v.communitySigmaTot = v.selfWeight + weight.getOrElse(0.0); v.adjacentWeight = weight.getOrElse(0.0); v })
 
     newGraph
   }
@@ -286,7 +349,7 @@ object moreLevel {
   }
   private def mergeMsg(m1: Map[Long, (Double, Double)], m2: Map[Long, (Double, Double)]) = {
     val infoMap = scala.collection.mutable.HashMap[Long, (Double, Double)]()
-    Logger.writeLog("received message " + m1 + " and " + m2)
+    //Logger.writeLog("received message " + m1 + " and " + m2)
     m1.foreach(f => {
       if (infoMap.contains(f._1)) {
         val w = f._2._2
