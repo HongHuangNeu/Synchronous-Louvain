@@ -36,7 +36,7 @@ object runner {
     var result = initialGraph
     var i = 1
     do {
-
+    	Logger.initialLog(i)
       println("the " + i + "run")
       result = moreLevel.louvainOneLevel(input, sc, 0.6)
       //results(i - 1) = result
@@ -49,12 +49,13 @@ object runner {
       input = tmp
       Logger.i=Logger.i+1
       i = i + 1
+      Logger.close
 
     } while (moreLevel.needMoreLevel(result) && (!Setting.oneLevel));
-    Logger.writeLog("in total" + (i - 2) + "levels")
+    //Logger.writeLog("in total" + (i - 2) + "levels")
     
     
-    Logger.close
+    //Logger.close
    
   }
 }

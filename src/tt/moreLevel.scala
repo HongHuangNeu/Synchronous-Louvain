@@ -218,6 +218,12 @@ object moreLevel {
 
      // val conv = newCom.vertices.values.map(v => v.converge).reduce(_ && _)// may be problematic because of lazy evaluation
       
+      //if strnge things happen, remove this line
+     newLouvainGraph.vertices.unpersist(blocking = false)
+     newLouvainGraph.edges.unpersist(blocking=false)
+     communityInfo.unpersist(blocking=false)
+      //if strnge things happen, remove this line ends
+      
       val conv = newCom.vertices.values.map(v => if(v.converge){0}else{1}).reduce(_ + _)
       if(conv==0)
       {converge=true}

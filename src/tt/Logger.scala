@@ -5,8 +5,12 @@ import java.util.Calendar
 
 object Logger {
 
-  val fw = new FileWriter(Setting.graphHome + "/log" + Calendar.getInstance().getTime(), true)
+  var time=Calendar.getInstance().getTime()
+  var fw = new FileWriter(Setting.graphHome + "/log" + Calendar.getInstance().getTime(), true)
   var i=1
+  def initialLog(i:Int)={
+    fw = new FileWriter(Setting.graphHome + "/log" +time+"level"+i, true)
+  }
   def writeLog(line: String) = {
     println(line)
     //fw.write(line + "\n")
