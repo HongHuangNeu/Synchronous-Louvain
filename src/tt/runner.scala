@@ -41,6 +41,7 @@ object runner {
       result = moreLevel.louvainOneLevel(input, sc, 0.6)
       //results(i - 1) = result
       result.vertices.coalesce(1, true).saveAsTextFile(Setting.graphHome + "/result" + i.toString)
+      result.vertices.foreach(f=>Logger.writeResult(f._1+" "+f._2.community))
       val tmp = moreLevel.compressGraph(result, sc)
 
       Logger.writeLog("info of new graph")
