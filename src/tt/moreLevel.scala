@@ -26,7 +26,12 @@ object moreLevel {
       val str = new StringTokenizer(e, "\t");
       val id1 = str.nextToken().toLong
       val id2 = str.nextToken().toLong
-      val w = str.nextToken().toDouble
+      var w=0.0
+      if(str.hasMoreTokens())
+       w = str.nextToken().toDouble
+       else{
+         w=1.0
+       }
       if (id1 > id2) { Array(((id2, id1), w)) }
       else {
         Array(((id1, id2), w))
