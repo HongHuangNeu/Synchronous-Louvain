@@ -5,8 +5,8 @@ object Setting {
   val oneIteration = false //true if you only want one iteration
   val checkModularityCalculation=false
   val treshold=1
-  val graphHome = "/home/honghuang/Synchronous-Louvain/benchmark/binary_network_5000/5000_0.7"
-  val maxIter=1000
+  val graphHome = "/home/honghuang/Synchronous-Louvain/benchmark/binary_network_5000/5000_0.75"
+  val maxIter=1000000000
   val graphFileName = "network.dat"
   val numOfNodes =5000L
   
