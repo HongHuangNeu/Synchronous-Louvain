@@ -11,8 +11,9 @@ import org.apache.spark.rdd.RDD
 import java.util.regex.Matcher
 import java.util.regex.Pattern
 import scala.collection._
-import java.util.StringTokenizer;
+import java.util.StringTokenizer
 import java.io.IOException
+import java.io.FileWriter
 object moreLevel {
   /*
    * Graph Initialization
@@ -207,7 +208,7 @@ object moreLevel {
         Logger.terminates
         sys.exit(0)
       }
-    } while (!converge)
+    } while (!converge&&counter<Setting.maxIter)
     Logger.writeLog("execution ends")
 
     LouvainGraph.vertices.collect().foreach(f => Logger.writeLog(f.toString))
@@ -220,6 +221,25 @@ object moreLevel {
 
     Logger.writeLog("final modularity" + modul)
     Logger.writeAdditionalLog("final modularity" + modul)
+    if(counter==Setting.maxIter)
+    {
+      val fw = new FileWriter(Setting.graphHome + "/stuckVertices", true)
+      LouvainGraph.vertices.foreach(f=>fw.write(f._1+" "+f._2.selfWeight+"\n"))
+      fw.flush()
+      fw.close()
+      val gw = new FileWriter(Setting.graphHome + "/stuckEdges", true)
+      LouvainGraph.edges.foreach(f=>gw.write(f.srcId+" "+f.dstId+" "+f.attr+"\n"))
+      gw.flush()
+      gw.close()
+      
+      val hw = new FileWriter(Setting.graphHome + "/stuckCommunities", true)
+      LouvainGraph.vertices.foreach(f=>hw.write(f._1+" "+f._2.community+"\n"))
+      hw.flush()
+      hw.close()
+      Logger.close
+      sys.exit(0)
+      
+    }
     LouvainGraph
   }
   /*

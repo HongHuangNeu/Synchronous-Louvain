@@ -22,6 +22,7 @@ object runner {
      * */
 
     val conf = new SparkConf().setAppName("hello").setMaster("local").set("spark.executor.memory", "3g")
+    System.setProperty("spark.executor.memory", "3g")
     val sc = new SparkContext(conf)
 
     println("test")
