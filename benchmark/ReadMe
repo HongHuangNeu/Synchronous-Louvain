@@ -1,0 +1,4 @@
+In each folder of graph, folder "original" correspond to the data of sequential Louvain method, folder "previous result" correspond to the result of synchronous Louvain method. folder "synchronous" has nothing important
+
+For example, in "1000_0.85" folder, the result for synchronous Louvain method is in previous_result/synchronous
+"1000-0.85-1-2" means the community of 2nd run for the 1st graph 
