@@ -1,5 +1,6 @@
 package sample
 import scala.collection.mutable.Set
+import scala.util.control._
 import org.apache.spark.graphx.Graph
 import org.apache.spark.SparkContext
 import java.lang.Math
@@ -17,23 +18,31 @@ import java.io.FileWriter
 object snowballSample {
 def main(args: Array[String]): Unit = {
   var selectedNode=Set.empty[Long]
-  val requiredSize=3
+  val requiredSize=8
    val conf = new SparkConf().setAppName("hello").setMaster("local").set("spark.executor.memory", "5g").set("spark.driver.memory", "5g")
     //System.setProperty("spark.executor.memory", "3g")
     val sc = new SparkContext(conf)
   val initialNode=4L
   val graph=createLouvainGraphFromMap("/home/honghuang/exampleGraph",sc,8L,initialNode)
   selectedNode.add(initialNode)
-  
-  
+ 
   var newGraph=findNeighbour(graph)
+  val loop = new Breaks;
+      
   while(selectedNode.size<requiredSize)
   {
   
   println("neighbours")
  newGraph.vertices.filter(f=>f._2==1).collect.foreach(f=>println(f._1))
   
-  val nextNode=findNextNode(newGraph)
+  var nextNode=findNextNode(newGraph)
+  if(nextNode<0L)
+  { println("not connected, the sample")
+    selectedNode.foreach(f=>println(f))
+    
+    nextNode=getNextInitial(8,selectedNode)
+    println("the next selected node"+nextNode)
+  }
   selectedNode.add(nextNode)
   println("the next node selected"+nextNode)
   val addedGraph=addNode(newGraph,nextNode)
@@ -44,7 +53,27 @@ def main(args: Array[String]): Unit = {
  newGraph.vertices.filter(f=>f._2==1).collect.foreach(f=>println(f._1))
   
   }
+      
   
+}
+
+def getNextInitial(numOfElements:Long,set:Set[Long]):Long={
+  val remainList=getSubset(numOfElements,set)
+  val list=remainList.toArray
+  val size=list.size
+  val index=scala.util.Random.nextInt(size)
+  list(index)
+}
+
+def getSubset(numOfElements:Long,set:Set[Long]):Set[Long]={
+  var allNode=Set.empty[Long]
+   for( a <- 1L to numOfElements){
+         //println( "Value of a: " + a );
+         allNode.add(a)
+         
+}
+  val result=allNode--set
+  result
 }
 def addNode(graph:Graph[Int, Double],node:Long):Graph[Int, Double]={
   val tmp=graph.mapVertices((id,nodeType)=>{
@@ -74,11 +103,13 @@ def findNextNode(graph:Graph[Int, Double]):Long={
       -1
     }
     
-  }).vertices
+  }).vertices.filter(f=>{f._2>=0})
+  if(newGroup.count==0)
+  {return -1L}
   
   val map=newGroup.collectAsMap
-  var count=0
-  var index=0L
+ 
+  var (index,count)=map.head
   map.foreach(f=>{
     if(f._2>count){
       count=f._2
