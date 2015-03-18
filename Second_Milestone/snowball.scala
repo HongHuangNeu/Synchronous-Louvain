@@ -15,47 +15,105 @@ import scala.collection._
 import java.util.StringTokenizer
 import java.io.IOException
 import java.io.FileWriter
-object snowballSample {
+object snowball {
 def main(args: Array[String]): Unit = {
   var selectedNode=Set.empty[Long]
-  val requiredSize=8
+  var neighbours=Set.empty[Long]
+  val requiredSize=1000
+ val numOfNodes=100000L
    val conf = new SparkConf().setAppName("hello").setMaster("local").set("spark.executor.memory", "5g").set("spark.driver.memory", "5g")
     //System.setProperty("spark.executor.memory", "3g")
     val sc = new SparkContext(conf)
   val initialNode=4L
-  val graph=createLouvainGraphFromMap("/home/honghuang/exampleGraph",sc,8L,initialNode)
+  val graph=createLouvainGraphFromMap("/home/honghuang/Documents/benchmark/100000/network.dat",sc,numOfNodes,initialNode)
+  
+  val edges=graph.edges.flatMap(f=>{
+    Array((f.srcId,Array(f.dstId)))
+  }).reduceByKey((e1,e2)=>{e1++e2})
+  //edges.reduceByKey((e1,e2)=>{e1++e2})
+  
+  
+  val t=edges.collectAsMap
+  
+  t.foreach(f=>{
+    println("node"+f._1)
+  val list=f._2
+   list.foreach(f=>println(f))
+  })
   selectedNode.add(initialNode)
- 
-  var newGraph=findNeighbour(graph)
-  val loop = new Breaks;
-      
-  while(selectedNode.size<requiredSize)
-  {
-  
-  println("neighbours")
- newGraph.vertices.filter(f=>f._2==1).collect.foreach(f=>println(f._1))
-  
-  var nextNode=findNextNode(newGraph)
-  if(nextNode<0L)
-  { println("not connected, the sample")
-    selectedNode.foreach(f=>println(f))
-    
-    nextNode=getNextInitial(8,selectedNode)
-    println("the next selected node"+nextNode)
-  }
-  selectedNode.add(nextNode)
-  println("the next node selected"+nextNode)
-  val addedGraph=addNode(newGraph,nextNode)
-  
-  newGraph=findNeighbour(addedGraph)
-  
-  println("neighbours")
- newGraph.vertices.filter(f=>f._2==1).collect.foreach(f=>println(f._1))
-  
-  }
-      
-  
+  val initialNeighbour=edges.collectAsMap()(initialNode)
+  neighbours=neighbours++initialNeighbour
+  println("initialNeighbours")
+neighbours.foreach(f=>printf(""+f))
+while(selectedNode.size<requiredSize){
+var next=getNextNode(selectedNode, neighbours,t)
+if(next<0)
+{
+  next=getNextInitial(selectedNode,t)
 }
+println("nextNode selected"+next)
+ selectedNode.add(next)
+ val adjacentsOfNextNode=t(next).toSet
+ 
+ neighbours=neighbours++adjacentsOfNextNode--selectedNode
+ println("the neighbours after adding"+next)
+ neighbours.foreach(f=>println(f))
+}
+  println("selected nodes")
+  selectedNode.foreach(f=>println(f))
+  val subgraph=graph.subgraph(vpred = (id, attr) => selectedNode.contains(id))
+  val testSet=Set.empty[Long]
+  subgraph.edges.flatMap(f=>Array((f.srcId,f.dstId))).collectAsMap.foreach(f=>{testSet.add(f._1)
+    testSet.add(f._2)
+    })
+    println("testSet size"+testSet.size)
+    val sw = new FileWriter("/home/honghuang/Documents/benchmark/100000/sample.dat")
+  subgraph.edges.flatMap(f=>Array((f.srcId,f.dstId))).collectAsMap.foreach(
+  f=>{
+    sw.write(f._1+"\t"+f._2+"\n")
+  }    
+  )
+}
+
+def getNextInitial(selectedNode:Set[Long],list:Map[Long,Array[Long]]):Long={
+  val set=list.keySet
+  val effectiveSet=set--selectedNode
+  effectiveSet.toList(scala.util.Random.nextInt(effectiveSet.size))
+}
+
+def getNextNode(selectedNode:Set[Long], neighbours:Set[Long],list:Map[Long,Array[Long]]):Long={
+  var countMap:Map[Long,Long]= Map.empty[Long,Long]
+  var i=0L
+  if(neighbours.size==0)
+  {return -1L}
+  neighbours.foreach(f=>{
+    i=f
+    var adjacent=list(f)
+    var count=0L
+    adjacent.foreach(f=>{
+      if((!selectedNode.contains(f))&&(!neighbours.contains(f)))
+      {
+        count=count+1L
+      }
+    })
+    countMap=countMap+(f->count)
+  })
+  
+  countMap.foreach(f=>{
+  println("node"+f._1+" has"+f._2+"neighbours")})
+ 
+  var index=i
+  var count=countMap(index)
+  
+  println("chosen node"+index+"count"+count)
+  countMap.foreach(f=>{
+    if(f._2>count)
+      {count=f._2
+      index=f._1}
+  })
+  index
+}
+
 
 def getNextInitial(numOfElements:Long,set:Set[Long]):Long={
   val remainList=getSubset(numOfElements,set)
@@ -158,10 +216,10 @@ def createLouvainGraphFromMap(path: String, sc: SparkContext, numOfNodes: Long,i
        else{
          w=1.0
        }
-      if (id1 > id2) { Array(((id2, id1), w)) }
-      else {
-        Array(((id1, id2), w))
-      }
+      
+     
+        Array(((id1, id2), w),((id2, id1), w))
+      
     })
     val edges = edg.distinct
     edges.collect().foreach(f => println(f))
@@ -200,6 +258,5 @@ def createLouvainGraphFromMap(path: String, sc: SparkContext, numOfNodes: Long,i
     graph
 
   }
-
 
 }
