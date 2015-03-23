@@ -1,4 +1,5 @@
 package sample
+import scala.util.control.Breaks._
 import scala.collection.mutable.Set
 import scala.util.control._
 import org.apache.spark.graphx.Graph
@@ -15,7 +16,7 @@ import scala.collection._
 import java.util.StringTokenizer
 import java.io.IOException
 import java.io.FileWriter
-object snowball {
+object forestFire {
 def main(args: Array[String]): Unit = {
   var selectedNode=Set.empty[Long]
   var neighbours=Set.empty[Long]
@@ -33,96 +34,96 @@ def main(args: Array[String]): Unit = {
   //edges.reduceByKey((e1,e2)=>{e1++e2})
   
   
-  val t=edges.collectAsMap
+  val adjacent=edges.collectAsMap
   
-  t.foreach(f=>{
+  adjacent.foreach(f=>{
     println("node"+f._1)
   val list=f._2
    list.foreach(f=>println(f))
   })
   selectedNode.add(initialNode)
-  val initialNeighbour=edges.collectAsMap()(initialNode)
-  neighbours=neighbours++initialNeighbour
-  println("initialNeighbours")
-neighbours.foreach(f=>printf(""+f))
-while(selectedNode.size<requiredSize){
-var next=getNextNode(selectedNode, neighbours,t)
-if(next<0)
-{
-  next=getNextInitial(selectedNode,t)
-}
-println("nextNode selected"+next)
- selectedNode.add(next)
- val adjacentsOfNextNode=t(next).toSet
- 
- neighbours=neighbours++adjacentsOfNextNode--selectedNode
- println("the neighbours after adding"+next)
- neighbours.foreach(f=>println(f))
+  
+  var frontier=Set.empty[Long]
+  var burnSet=Set.empty[Long]
+  frontier.add(initialNode)
+  //burnSet=burnSet++adjacent(initialNode)
+  println(geoRandom)
+   println(geoRandom)
+    println(geoRandom)
+    
+    breakable {
+    while(selectedNode.size<requiredSize)
+    {
+    //if the fire dies out, randomly select a new node to restart
+      if(frontier.isEmpty)
+      {
+        val remainSet=((1L to numOfNodes).toSet--selectedNode).toVector
+        val nextNode=remainSet(scala.util.Random.nextInt(remainSet.size))
+        selectedNode.add(nextNode.toLong)
+        frontier.add(nextNode)
+        println("the next node to start"+nextNode)
+        if(selectedNode.size>=requiredSize)
+        {println("big enough!")
+          break
+          }
+      }
+      frontier.foreach(
+      f=>{
+        println(f+"is being considered")
+        val burnlist=addNewNode(f,adjacent,selectedNode)
+        burnSet=burnSet++burnlist
+        selectedNode=selectedNode++burnSet
+      }    
+      )
+      
+      frontier=burnSet
+      println("the following nodes are being burned")
+      burnSet.foreach(f=>println(f))
+      burnSet=Set.empty[Long]
+    		  
+    }
 }
   println("selected nodes")
-  selectedNode.foreach(f=>println(f))
-  val subgraph=graph.subgraph(vpred = (id, attr) => selectedNode.contains(id))
-  val testSet=Set.empty[Long]
-  subgraph.edges.flatMap(f=>Array((f.srcId,f.dstId))).collectAsMap.foreach(f=>{testSet.add(f._1)
-    testSet.add(f._2)
-    })
-    println("testSet size"+testSet.size)
-    val sw = new FileWriter("/home/honghuang/Documents/benchmark/100000/sample.dat")
+      selectedNode.foreach(f=>println(f))
+      val subgraph=graph.subgraph(vpred = (id, attr) => selectedNode.contains(id))
+      
+      val sw = new FileWriter("/home/honghuang/Documents/benchmark/100000/sample2.dat")
   subgraph.edges.flatMap(f=>Array((f.srcId,f.dstId))).collectAsMap.foreach(
   f=>{
     sw.write(f._1+"\t"+f._2+"\n")
   }    
   )
-sw.flush()
+      sw.flush()
 sw.close()
-}
-
-def getNextInitial(selectedNode:Set[Long],list:Map[Long,Array[Long]]):Long={
-  val set=list.keySet
-  val effectiveSet=set--selectedNode
-  effectiveSet.toList(scala.util.Random.nextInt(effectiveSet.size))
-}
-
-def getNextNode(selectedNode:Set[Long], neighbours:Set[Long],list:Map[Long,Array[Long]]):Long={
-  var countMap:Map[Long,Long]= Map.empty[Long,Long]
-  var i=0L
-  if(neighbours.size==0)
-  {return -1L}
-  neighbours.foreach(f=>{
-    i=f
-    var adjacent=list(f)
-    var count=0L
-    adjacent.foreach(f=>{
-      if((!selectedNode.contains(f))&&(!neighbours.contains(f)))
-      {
-        count=count+1L
-      }
-    })
-    countMap=countMap+(f->count)
-  })
-  
-  countMap.foreach(f=>{
-  println("node"+f._1+" has"+f._2+"neighbours")})
- 
-  var index=i
-  var count=countMap(index)
-  
-  println("chosen node"+index+"count"+count)
-  countMap.foreach(f=>{
-    if(f._2>count)
-      {count=f._2
-      index=f._1}
-  })
-  index
-}
-
-
-
-
-
-
-
-def createLouvainGraphFromMap(path: String, sc: SparkContext, numOfNodes: Long,initialNode:Long): Graph[Int, Double] = {
+  } 
+  def addNewNode(currentNode:Long,adjacent:Map[Long,Array[Long]],selectedNode:Set[Long]):Set[Long]={
+   
+    var result=Set.empty[Long]
+    val neighbours=adjacent(currentNode)
+    val remain=neighbours.toSet--selectedNode
+    val r=scala.util.Random.shuffle(remain.toList)
+    var iterator=r.iterator
+    
+    var numOfElements=geoRandom
+    println("the selected random number:"+numOfElements)
+    var count=0
+    while(iterator.hasNext&&count<numOfElements)
+    {
+      count=count+1
+      result.add(iterator.next)
+    }
+    result
+  }
+  def geoRandom():Int={
+    val rand=scala.util.Random.nextDouble
+    val pBurn=0.2
+    val p=1-pBurn
+    return scala.math.floor(loge(rand) / loge(1-p)).toInt
+  }
+  def loge(x:Double)={
+    scala.math.log(x)/scala.math.log(java.lang.Math.E)
+  }
+  def createLouvainGraphFromMap(path: String, sc: SparkContext, numOfNodes: Long,initialNode:Long): Graph[Int, Double] = {
 
     val textFile = sc.textFile(path)
 
