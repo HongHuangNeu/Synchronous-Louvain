@@ -18,18 +18,21 @@ import java.io.IOException
 import java.io.FileWriter
 import scala.collection.mutable.Map
 object MoteCarloCC {
-  private var neighbours = collection.mutable.Map[Long, Int]().withDefaultValue(0)
+  //node id->numbers of selected adjacent nodes
+  private var currentNeighbours = collection.mutable.Map[Long, Int]().withDefaultValue(0)
 def main(args: Array[String]): Unit = {
   val numOfNodes=8L
   val requiredSize=2L
-  var selectedNode=Set.empty[Long]
-  var neighbours=Set.empty[Long]
+  
+  //var neighbours=Set.empty[Long]
   
   var vertexSet=Set.empty[Long]
  
   
-  val maxIteration=1
-  var currentSelected=Set(1L,2L)//randomlyInitialize(numOfNodes,requiredSize)
+  val maxIteration=5
+  var currentSelected=randomlyInitialize(numOfNodes,requiredSize)
+  println("initial selected")
+  currentSelected.foreach(f=>{println(f)})
   var bestSelected=currentSelected
   var newSelected=Set.empty[Long]
   
@@ -39,7 +42,7 @@ def main(args: Array[String]): Unit = {
    vertexSet.add(f)
  })
  
- 
+
    val conf = new SparkConf().setAppName("hello").setMaster("local").set("spark.executor.memory", "5g").set("spark.driver.memory", "5g")
     //System.setProperty("spark.executor.memory", "3g")
     val sc = new SparkContext(conf)
@@ -53,49 +56,76 @@ def main(args: Array[String]): Unit = {
   
   
   val adjacent=edges.collectAsMap
-  
   adjacent.foreach(f=>{
     println("node"+f._1)
   val list=f._2
    list.foreach(f=>println(f))
   })
-  
- // println("current set")
-  //currentSelected.foreach(f=>println(f))
-  //println(" ")
-  
+  initializeNeighbours(collection.mutable.Map() ++adjacent,currentSelected)
+  println("initial neighbours")
+  MoteCarloCC.currentNeighbours.keySet.foreach(f=>{println(f)})
+  /*
+  selectedNode.add(2L)
+  selectedNode.add(1L)
+  initializeNeighbours(collection.mutable.Map() ++adjacent,selectedNode)
+  val newNeighbours=neighboursAfterRemoveAndAdd(collection.mutable.Map() ++adjacent,2L,4L,selectedNode)
+  println("neighbours after")
+  newNeighbours.foreach(f=>{println(f)})
+  println()
+  println("current neighbours")
+  MoteCarloCC.currentNeighbours.foreach(f=>println(f))
+return
+  */
   val p=10*graph.edges.count/graph.vertices.count*log10(graph.vertices.count)
   
+  
+  
+  var currentEQ=expansionQuality(collection.mutable.Map() ++adjacent,currentSelected)
+  println("initial currentEQ"+currentEQ)
+  var bestEQ=expansionQuality(collection.mutable.Map() ++adjacent,bestSelected)
+  println("initial best EQ"+bestEQ)
   for( a <- 1 to maxIteration){
     println("iteration"+a)
     val v=randomNodeFromSet(currentSelected)
     println(" removed v"+v)
    var remain=vertexSet--currentSelected+v
-   //println("remain set")
     
    
     val w=randomNodeFromSet(remain)
     println("added w"+w)
    newSelected=currentSelected-v+w 
    val alpha=scala.util.Random.nextFloat
-   val Q_new=1//expansionQuality(collection.mutable.Map() ++adjacent,newSelected)
-   val Q_current=1//expansionQuality(collection.mutable.Map() ++adjacent,currentSelected)
-   // Math.pow(x,y)=Math.exp(y*Math.log(x))
-   val x=Q_new/Q_current
+   val Q_new=expansionQuality(collection.mutable.Map() ++adjacent,v,w,currentSelected)//expansionQuality(collection.mutable.Map() ++adjacent,newSelected)
+   println("currentEQ"+currentEQ)
+   println("new EQ"+Q_new)
+   val x=Q_new/currentEQ
    val y=p.toInt
    if(alpha<MyPow.pow(x,y))
-   {
+   { println("probability trigered")
+     MoteCarloCC.currentNeighbours=neighboursAfterRemoveAndAdd(collection.mutable.Map() ++adjacent,v,w,currentSelected) 
      currentSelected=newSelected
-     val Q_best=1//expansionQuality(collection.mutable.Map() ++adjacent,bestSelected)
-     if(Q_current>Q_best)
+     currentEQ=Q_new
+     println("currentEQ is now"+currentEQ)
+   println("new current selected is now")
+   currentSelected.foreach(f=>{println(f)})
+   println("new current neighbours is now")
+   MoteCarloCC.currentNeighbours.keySet.foreach(f=>{
+     println(f)
+   })
+     if(currentEQ>bestEQ)
      {
+       println("better than best!")
        bestSelected=currentSelected
+       bestEQ=currentEQ
+       println("best EQ is now"+bestEQ)
+       println("best selected is now")
+       bestSelected.foreach(f=>{println(f)})
      }
    }
   }
 
   val subgraph=graph.subgraph(vpred = (id, attr) => bestSelected.contains(id))
-  /*
+  
   val sw = new FileWriter("/home/honghuang/Documents/benchmark/100000/sample3.dat")
   subgraph.edges.flatMap(f=>Array((f.srcId,f.dstId))).collectAsMap.foreach(
   f=>{
@@ -104,16 +134,64 @@ def main(args: Array[String]): Unit = {
   )
       sw.flush()
 sw.close()
-  */
+  
 }
+
+def neighboursAfterRemoveAndAdd(adjacent:Map[Long,Array[Long]],removeNode:Long,addNode:Long,selectedNode:Set[Long]):Map[Long,Int]={
+  //be careful, the "selectedNode" variable here refer to the selected node set before removing v and adding w
+  
+  //When the node is remove, the "selected" count of the affected neighbours should decrease 1
+  val setAfterRemove=selectedNode.clone()-removeNode
+  var neighbours=MoteCarloCC.currentNeighbours.clone
+  val removeArray=adjacent(removeNode)
+  var selectedCount=0
+  removeArray.foreach(f=>{
+    if(neighbours.contains(f))
+    {
+      neighbours(f)=neighbours(f)-1
+    }
+    if(setAfterRemove.contains(f))
+    {
+      selectedCount=selectedCount+1
+    }
+  })
+  
+  //the node being removed may be a neighbour himself
+  if(selectedCount!=0)
+ neighbours(removeNode)=selectedCount
+  
+ //The node being added may previously be a neighbour himself
+  neighbours.remove(addNode)
+  
+  val addArray=adjacent(addNode)
+  addArray.foreach(f=>{
+   if(!setAfterRemove.contains(f))
+   {
+    if(neighbours.contains(f))
+    {
+      neighbours(f)=neighbours(f)+1
+    }else{
+      neighbours(f)=1
+    }
+   }
+  })
+  
+  neighbours=neighbours.filter(f=>{f._2!=0})
+  neighbours
+}  
   
 def initializeNeighbours(adjacent:Map[Long,Array[Long]],selectedNode:Set[Long])={
   selectedNode.foreach(f=>{
     val array=adjacent(f)
     array.foreach(c=>{
-      MoteCarloCC.neighbours.update(c, MoteCarloCC.neighbours(c)+1)
+      if(!selectedNode.contains(c))
+      MoteCarloCC.currentNeighbours.update(c, MoteCarloCC.currentNeighbours(c)+1)
     })
   })
+  println("initial neighbours")
+  MoteCarloCC.currentNeighbours.foreach(f=>println(f))
+  println()
+  
 }
   
 def myPow(x:Double,y:Int):Double={
@@ -154,6 +232,13 @@ def expansionQuality(adjacent:Map[Long,Array[Long]],selectedNode:Set[Long]):Doub
  // println("not selected")
  // notSelected.foreach(f=>println(f))
   sizeOfNeighbourSet/sizeOfNotSelected
+}
+
+def expansionQuality(adjacent:Map[Long,Array[Long]],removeNode:Long,addNode:Long,selectedNode:Set[Long]):Double={
+  val newNeighbours=neighboursAfterRemoveAndAdd(adjacent,removeNode,addNode,selectedNode)
+  val notSelected=collection.mutable.Set(adjacent.keySet.toSeq:_*)--selectedNode
+  newNeighbours.keySet.size.toDouble/notSelected.size.toDouble
+  
 }
 
 def subgraph(adjacent:Map[Long,Array[Long]],selectedNode:Set[Long]):Map[Long,Array[Long]]={
