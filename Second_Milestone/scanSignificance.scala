@@ -1,4 +1,4 @@
-package ir
+package sample
 import org.apache.spark.graphx.Graph
 import org.apache.spark.SparkContext
 import java.lang.Math
@@ -13,12 +13,29 @@ import scala.collection._
 import java.util.StringTokenizer
 import java.io.IOException
 import java.io.FileWriter
+import java.io.PrintWriter
+import java.io.File
 object scanSignificance {
 def main(args: Array[String]): Unit = {
   
   println("real run");
     println("scala works")
     println("Spark initialization")
+ /*
+    val writer1 = new PrintWriter(new File("/home/honghuang/Synchronous-Louvain/benchmark/binary_network_5000/5000_0.75/synchronous/trivial1" ))
+    val writer2 = new PrintWriter(new File("/home/honghuang/Synchronous-Louvain/benchmark/binary_network_5000/5000_0.75/synchronous/trivial2" ))
+    for( a <- 1 to 5000){
+         writer1.write(a+" "+a+"\n")
+         writer1.flush
+         writer2.write(a+" 1\n")
+         writer2.flush
+      }
+    
+    writer1.close()
+    writer2.close()
+    return
+   */
+    
     /*
      * Spark initialization
      * */
@@ -26,21 +43,18 @@ def main(args: Array[String]): Unit = {
     val conf = new SparkConf().setAppName("hello").setMaster("local").set("spark.executor.memory", "3g")
     System.setProperty("spark.executor.memory", "3g")
     val sc = new SparkContext(conf)	
-   val significance=calculateSignificance(sc,"/home/honghuang/test_graph","/home/honghuang/test_community")
+   val significance=calculateSignificance(sc,"/home/honghuang/Synchronous-Louvain/benchmark/binary_network_5000/5000_0.75/network.dat","/home/honghuang/Synchronous-Louvain/benchmark/binary_network_5000/5000_0.75/synchronous/5000-0.75-1-1")
    println("significance"+significance)
 }
 
-/**
- * A small function to compute density of the graph
- * 
- */
+
 
  def calculateSignificance(sc:SparkContext,graphPath:String,communityPath:String):Double={
    val graph=createLouvainGraphFromMap(graphPath,sc,5)
     val vertices=graph.vertices
     val textFile = sc.textFile(communityPath)
     val community = textFile.flatMap(e => {
-      val str = new StringTokenizer(e, "\t");
+      val str = new StringTokenizer(e, " ");
       val nodeId = str.nextToken().toLong
       val communityId = str.nextToken().toLong
       Array((nodeId,communityId))
@@ -72,10 +86,10 @@ def main(args: Array[String]): Unit = {
  var div=0.0
  var t=1.0
  
- val numNodes=5
+ val numNodes=newGraph.vertices.count
  val numOfEdges=newGraph.edges.count
  println("edge count"+numOfEdges)
- val p=density(5,numOfEdges)   //total density
+ val p=density(numNodes,numOfEdges)   //total density
  joinInfo.collectAsMap.foreach(f=>{
    val numEdgeInC=f._2._1
    val numNodeInC=f._2._2
@@ -95,6 +109,10 @@ def main(args: Array[String]): Unit = {
  
  return div 
  }
+ /**
+ * A small function to compute density of the graph
+ * 
+ */
  def density(numberNodes:Long,numberOfEdges:Long):Double={
    val p=(2*numberOfEdges.toDouble)/(numberNodes.toDouble*(numberNodes.toDouble-1))
    p
@@ -103,7 +121,8 @@ def main(args: Array[String]): Unit = {
   * Divergence
   * */
  def divergence(q:Double,p:Double):Double={
-   if(q==1.0)
+   
+   if(q==1.0)  // because as x->0, lim((x)ln(x))=0
    {q*log2(q/p)}
    else{
    q*log2(q/p)+(1-q)*log2((1-q)/(1-p))
@@ -111,7 +130,12 @@ def main(args: Array[String]): Unit = {
  }
  
  def c(n_c:Long,up:Long):Long={
-   
+		if(n_c<up)
+		{ return 0 }
+		else if(n_c==up)
+		{
+		  return 1
+		}
    n_c*(n_c-1)/((up)*(up-1))
  }
  def log2(x:Double)={
