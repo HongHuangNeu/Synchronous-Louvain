@@ -21,7 +21,7 @@ object snowTry {
 def main(args: Array[String]): Unit = {
   var selectedNode=BitSet.empty
   var neighbours=BitSet.empty
-  val requiredSize=10000
+  val requiredSize=50000
  val numOfNodes=100000L
    val conf = new SparkConf().setAppName("hello").setMaster("local").set("spark.executor.memory", "5g").set("spark.driver.memory", "5g")
     //System.setProperty("spark.executor.memory", "3g")
@@ -75,21 +75,32 @@ def main(args: Array[String]): Unit = {
   var index=(0-1)
     
   var count=(0-1) 
-  
+ // println("complete list before choose")
+ //array.foreach(f=>{println(f)}) 
   
   //after this loop, index contains the next node to choose
   neighbours.foreach(f=>{
+   // println("looking at "+f)
     if(array(f)>count)
     {
       index=f
+      count=array(f)
     }
   })
+  if(index<0)
+  {
+   println("the graph is not connected!") 
+    index=getNextInitial(selectedNode,t).toInt
+    println("next node to start"+index)
+  }
   val nextNode=index
   selectedNode.add(nextNode)
   neighbours=neighbours-nextNode
+ 
+  
   //println("next node"+nextNode)
-  val adjacent=t(nextNode)
-  adjacent.foreach(f=>{
+  val adj=t(nextNode)
+  adj.foreach(f=>{
     if(!neighbours.contains(f)&&(!selectedNode.contains(f)))
     {
       val list=t(f)
@@ -100,24 +111,42 @@ def main(args: Array[String]): Unit = {
     }
   })
   
-  //println("neighbours after")
-  //neighbours.foreach(f=>{
+ // println("neighbours after")
+ // neighbours.foreach(f=>{
   //  println(f)
   //})
   //println("complete list")
   //for(a<- 1 to numOfNodes.toInt)
   //{
-  //  println(a+" "+array(a))
+   // println(a+" "+array(a))
   //}
-  //println("selected node")
-  //selectedNode.foreach(f=>{
+ // println("selected node")
+ // selectedNode.foreach(f=>{
   //  println(f)
   //})
   }
-  println("selectedNode")
-  selectedNode.foreach(f=>{
-    println(f)
+  
+  
+  val subgraph=graph.subgraph(vpred = (id, attr) => selectedNode.contains(id.toInt))
+  
+  val sw = new FileWriter("/home/honghuang/Documents/benchmark/100000/sample3.dat")
+  subgraph.edges.collect.foreach(
+  f=>{
+    sw.write(f.srcId+"\t"+f.dstId+"\n")
+  }    
+  )
+      sw.flush()
+sw.close()
+  
+}
+def getNextInitial(selectedNode:BitSet,list:Map[Long,Array[Int]]):Long={
+  val set=list.keySet
+  var totalSet=BitSet.empty
+  set.foreach(f=>{
+    totalSet.add(f.toInt)
   })
+  val effectiveSet=totalSet--selectedNode
+  effectiveSet.toList(scala.util.Random.nextInt(effectiveSet.size))
 }
 def createLouvainGraphFromMap(path: String, sc: SparkContext, numOfNodes: Long,initialNode:Long): Graph[Int, Double] = {
 
