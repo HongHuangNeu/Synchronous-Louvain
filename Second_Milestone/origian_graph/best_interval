@@ -1,0 +1,2 @@
+command:./benchmark -N 10000 -k 15 -maxk 50 -mu 0.5 -minc 20 -maxc 50
+0.0078125   0.04419417382415922   log distance: 0.75257498915995291
