@@ -2,7 +2,9 @@ Synchronous-Louvain
 ===================
 Created by Hong Huang
 (Master thesis)
-In the code, I built a toy example to verify the correctness of one iteration of the program. The toy example is this:
+This repository contains the code for synchronous Louvain community detection algorithm. 
+
+To demonstrate how this algorithm works, here is a toy example:
 ![The toy example](simulation.png)
 
 The numbers inside the circle are vertice id and all the other numbers are edge weights. I have added self loop on purpose to verify the correctness of the program. The weight of selft loop is twice the weight of the community that the current node represents. For instance, you can see that node 3 has a self loop of weight 1.0, so the community in the previous level that node 3 represents has a total internal weight of 0.5, 0.5x2=1.
