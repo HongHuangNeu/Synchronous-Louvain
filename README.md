@@ -65,7 +65,6 @@ So node 7 should stay in his original community.
 If he stays in the current community, the gain is 0 because you are doing nothing(removing a node from the community of its own and then add it to the community of its own). If he joins community 5, the weight from community 5 to node 2 is 3.0, so k_i_in is 3.0, the gain of modularity(ignore the scalar 1/2m) is k_i_in-(sima_tot*k_i)/m=3.0-(10.0*4.0)/12=3-10/3=-1/3. Smaller than 0.
 
 So node 2 should stay in his original community
-=======
 
-![The link to the main source code](https://github.com/HongHuangNeu/Synchronous-Louvain/blob/master/TE/src/tt/test.scala)
+
 
